@@ -15,14 +15,16 @@ class AuthenticatedSessionController extends Controller
     /**
      * Handle an incoming authentication request.
      */
-    public function store(LoginRequest $request)
+public function store(Request $request)
 {
     $request->validate([
-        'email' => ['required', 'email'],
+        'emailormobile' => ['required'],   // email or phone
         'password' => ['required'],
     ]);
 
-    $user = User::where('email', $request->email)->first();
+    $user = User::where('email', $request->emailormobile)
+                ->orWhere('phone', $request->emailormobile)
+                ->first();
 
     if (! $user || ! Hash::check($request->password, $user->password)) {
         return response()->json([
@@ -30,7 +32,6 @@ class AuthenticatedSessionController extends Controller
         ], 401);
     }
 
-    // delete old tokens (optional but recommended)
     $user->tokens()->delete();
 
     $token = $user->createToken('api-token')->plainTextToken;
@@ -41,6 +42,7 @@ class AuthenticatedSessionController extends Controller
         'user' => $user,
     ]);
 }
+
 
     /**
      * Destroy an authenticated session.
