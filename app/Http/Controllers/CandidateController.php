@@ -17,72 +17,75 @@ class CandidateController extends Controller
     ===================================== */
 
     public function store(Request $request)
-{
-    $validator = Validator::make($request->all(), [
-        'name'        => 'required|string|max:255',
-        'email'       => 'required|email|max:255',
-        'mobile_no'   => [
-            'required',
-            'string',
-            'regex:/^\+?[0-9]{10,15}$/',
-        ],
-        'location'    => 'required|string|max:255',
-        'position_id' => 'required|exists:positions,id',
-        'resume'      => 'required|mimes:pdf,doc,docx|max:2048'
-    ], [
-        'mobile_no.regex' => 'The mobile number must be valid and contain 10 to 15 digits.'
-    ]);
-
-    if ($validator->fails()) {
-        return response()->json([
-            'status' => false,
-            'errors' => $validator->errors()
-        ], 422);
-    }
-
-    // Prevent duplicate applications
-    $existing = Candidate::where('email', $request->email)
-        ->where('position_id', $request->position_id)
-        ->first();
-
-    if ($existing) {
-        return response()->json([
-            'status' => false,
-            'message' => 'You have already applied for this position.'
-        ], 409);
-    }
-
-    // First, create candidate without resume
-    $candidate = Candidate::create([
-        'name'        => $request->name,
-        'email'       => $request->email,
-        'mobile_no'   => $request->mobile_no,
-        'location'    => $request->location,
-        'position_id' => $request->position_id,
-        'status'      => 'pending'
-    ]);
-
-    // Handle resume file with original name + candidate id
-    if ($request->hasFile('resume')) {
-        $file     = $request->file('resume');
-        $original = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-        $ext      = $file->getClientOriginalExtension();
-        $filename = $original . '_' . $candidate->id . '.' . $ext;
-
-        $path = $file->storeAs('resumes', $filename, 'public');
-
-        // Update candidate with stored resume path
-        $candidate->update([
-            'resume' => $path
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'mobile_no' => [
+                'required',
+                'string',
+                'regex:/^\+?[0-9]{10,15}$/',
+            ],
+            'location' => 'required|string|max:255',
+            'position_id' => 'required|exists:positions,id',
+            'resume' => 'required|mimes:pdf,doc,docx|max:2048'
         ]);
-    }
 
-    return response()->json([
-        'status' => true,
-        'message' => 'Application submitted successfully',
-        'data' => $candidate
-    ], 201);
-}
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        // Prevent duplicate applications
+        $existing = Candidate::where('email', $request->email)
+            ->where('position_id', $request->position_id)
+            ->first();
+
+        if ($existing) {
+            return response()->json([
+                'status' => false,
+                'message' => 'You have already applied for this position.'
+            ], 409);
+        }
+
+        // 1️⃣ Create candidate FIRST (resume null temporarily)
+        $candidate = Candidate::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'mobile_no' => $request->mobile_no,
+            'location' => $request->location,
+            'position_id' => $request->position_id,
+            'status' => 'pending',
+            'resume' => null
+        ]);
+
+        // 2️⃣ Store resume using candidate ID
+        if ($request->hasFile('resume')) {
+            $file = $request->file('resume');
+            $original = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+            $ext = $file->getClientOriginalExtension();
+
+            // Clean filename (remove spaces & special chars)
+            $original = preg_replace('/[^A-Za-z0-9\-]/', '_', $original);
+
+            $filename = $original . '_' . $candidate->id . '.' . $ext;
+
+            $path = $file->storeAs('resumes', $filename, 'public');
+
+            // 3️⃣ Update resume column
+            $candidate->update([
+                'resume' => $path
+            ]);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Application submitted successfully',
+            'data' => $candidate
+        ], 201);
+    }
 
     /* =====================================
         ADMIN: Get Candidates (Filter/Search)
@@ -99,7 +102,7 @@ class CandidateController extends Controller
         if ($request->search) {
             $query->where(function ($q) use ($request) {
                 $q->where('name', 'like', "%{$request->search}%")
-                  ->orWhere('email', 'like', "%{$request->search}%");
+                    ->orWhere('email', 'like', "%{$request->search}%");
             });
         }
 
@@ -116,45 +119,45 @@ class CandidateController extends Controller
     ===================================== */
 
     public function schedule(Request $request, $id)
-{
-    $validator = Validator::make($request->all(), [
-        'interview_date' => 'required|date',
-        'interview_time' => 'required'
-    ]);
+    {
+        $validator = Validator::make($request->all(), [
+            'interview_date' => 'required|date',
+            'interview_time' => 'required'
+        ]);
 
-    if ($validator->fails()) {
-        return response()->json(['errors' => $validator->errors()], 422);
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $candidate = Candidate::findOrFail($id);
+
+        $dateTime = $request->interview_date . ' ' . $request->interview_time;
+
+        // Update candidate
+        $candidate->update([
+            'interview_at' => $dateTime,
+            'status' => 'scheduled'
+        ]);
+
+        // Send email notification
+        try {
+            Mail::raw(
+                "Hello {$candidate->name},\n\nYour interview has been scheduled on {$dateTime}.\n\nBest regards,\nCompany HR",
+                function ($mail) use ($candidate) {
+                    $mail->to($candidate->email)
+                        ->subject('Interview Scheduled');
+                }
+            );
+        } catch (\Exception $e) {
+            // Optional: log the error if email fails
+            Log::error("Failed to send interview email: " . $e->getMessage());
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Interview scheduled successfully and email sent to candidate'
+        ]);
     }
-
-    $candidate = Candidate::findOrFail($id);
-
-    $dateTime = $request->interview_date . ' ' . $request->interview_time;
-
-    // Update candidate
-    $candidate->update([
-        'interview_at' => $dateTime,
-        'status' => 'scheduled'
-    ]);
-
-    // Send email notification
-    try {
-        Mail::raw(
-            "Hello {$candidate->name},\n\nYour interview has been scheduled on {$dateTime}.\n\nBest regards,\nCompany HR",
-            function ($mail) use ($candidate) {
-                $mail->to($candidate->email)
-                     ->subject('Interview Scheduled');
-            }
-        );
-    } catch (\Exception $e) {
-        // Optional: log the error if email fails
-        Log::error("Failed to send interview email: " . $e->getMessage());
-    }
-
-    return response()->json([
-        'status' => true,
-        'message' => 'Interview scheduled successfully and email sent to candidate'
-    ]);
-}
     /* =====================================
         Accept Candidate
     ===================================== */
@@ -227,7 +230,7 @@ class CandidateController extends Controller
 
         Mail::raw($request->message, function ($mail) use ($candidate, $request) {
             $mail->to($candidate->email)
-                 ->subject($request->subject);
+                ->subject($request->subject);
         });
 
         return response()->json([
@@ -241,42 +244,51 @@ class CandidateController extends Controller
     ===================================== */
 
     public function downloadResume($id)
-{
-    $candidate = Candidate::findOrFail($id);
+    {
+        $candidate = Candidate::findOrFail($id);
 
-    // Full path to file
-    $filePath = storage_path('app/public/' . $candidate->resume);
+        // Full path to file
+        $filePath = storage_path('app/public/' . $candidate->resume);
 
-    if (!file_exists($filePath)) {
-        return response()->json([
-            'status' => false,
-            'message' => 'File not found'
-        ], 404);
+        if (!file_exists($filePath)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'File not found'
+            ], 404);
+        }
+
+        // Use original filename in download (optional, nicer for user)
+        $originalName = pathinfo($candidate->resume, PATHINFO_BASENAME);
+
+        return response()->download($filePath, $originalName);
     }
 
-    // Use original filename in download (optional, nicer for user)
-    $originalName = pathinfo($candidate->resume, PATHINFO_BASENAME);
 
-    return response()->download($filePath, $originalName);
-}
 
     /* =====================================
-        Preview Resume
-    ===================================== */
+     Preview Resume
+ ===================================== */
 
     public function previewResume($id)
-{
-    $candidate = Candidate::findOrFail($id);
+    {
+        $candidate = Candidate::findOrFail($id);
 
-    $filePath = storage_path('app/public/' . $candidate->resume);
+        $filePath = storage_path('app/public/' . $candidate->resume);
 
-    if (!file_exists($filePath)) {
-        return response()->json([
-            'status' => false,
-            'message' => 'File not found'
-        ], 404);
+        if (!file_exists($filePath)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'File not found'
+            ], 404);
+        }
+
+        // Get the file content
+        $fileContent = file_get_contents($filePath);
+        $mimeType = mime_content_type($filePath);
+
+        // Return the file with Content-Disposition: inline to force display in browser
+        return response($fileContent, 200)
+            ->header('Content-Type', $mimeType)
+            ->header('Content-Disposition', 'inline; filename="' . basename($candidate->resume) . '"');
     }
-
-    return response()->file($filePath);
-}
 }

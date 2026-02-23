@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\JobListController;
 use App\Http\Controllers\CandidateController;
+use App\Http\Controllers\SearchController;
 
 /*
 |--------------------------------------------------------------------------
@@ -46,6 +47,9 @@ Route::post('/admin/candidates/bulk-reject', [CandidateController::class, 'bulkR
 Route::post('/admin/candidates/{id}/email', [CandidateController::class, 'sendEmail']);
 Route::get('/admin/candidates/{id}/resume/download', [CandidateController::class, 'downloadResume']);
 Route::get('/admin/candidates/{id}/resume/preview', [CandidateController::class, 'previewResume']);
+
+// Add this with your other routes
+Route::get('/search', [SearchController::class, 'search']);
 
 // ✅ LOAD BREEZE AUTH ROUTES
 require __DIR__ . '/auth.php';

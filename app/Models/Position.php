@@ -7,36 +7,44 @@ use Illuminate\Database\Eloquent\Model;
 
 class Position extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
+        'department_id',
         'name',
         'location',
         'job_type',
-        'department_id',
-        'responsibility',
-        'requirements',
         'experience',
         'salary_range',
         'skills',
+        'responsibility',
+        'requirements',
         'status'
     ];
 
     protected $casts = [
+        'skills' => 'array',
         'responsibility' => 'array',
-        'requirements'   => 'array',
-        'skills'         => 'array',
-        'status'         => 'boolean', // if using boolean
+        'requirements' => 'array',
+        //'status' => 'boolean'
     ];
 
-    /*
-    |--------------------------------------------------------------------------
-    | Relationships
-    |--------------------------------------------------------------------------
-    */
-
+    // Relationship with department
     public function department()
     {
         return $this->belongsTo(Department::class);
     }
+
+    // Relationship with candidates
+    public function candidates()
+    {
+        return $this->hasMany(Candidate::class, 'position_id');
+    }
+
+    // Accessor to get applications count
+    public function getApplicationsCountAttribute()
+    {
+        return $this->candidates()->count();
+    }
+
 }
+
+
