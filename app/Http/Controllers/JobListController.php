@@ -164,7 +164,7 @@ public function show_position($id)
     ]);
 }
 
-    public function update_position(Request $request, $id)
+   public function update_position(Request $request, $id)
 {
     $position = Position::find($id);
 
@@ -192,7 +192,8 @@ public function show_position($id)
         'requirements' => ['sometimes', 'required', 'array'],
         'requirements.*' => ['required', 'string'],
 
-        'status' => ['nullable', 'boolean'], // Keep validation as boolean for frontend
+        // Change back to boolean to match frontend
+        'status' => ['nullable', 'boolean'],
 
         'department_id' => ['sometimes', 'required', 'exists:departments,id'],
     ]);
@@ -205,7 +206,7 @@ public function show_position($id)
         ], 422);
     }
 
-    // Get all fields except status first
+    // Get all fields
     $data = $request->only([
         'name',
         'location',
@@ -230,8 +231,8 @@ public function show_position($id)
         'message' => 'Position updated successfully',
         'position' => $position->fresh()
     ]);
-}
-    public function position_delete($id)
+}   
+ public function position_delete($id)
     {
         $position = Position::find($id);
 
