@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use App\Mail\CandidateTemplateMail;
+
 
 class CandidateController extends Controller
 {
@@ -215,29 +217,32 @@ class CandidateController extends Controller
         Send Custom Email
     ===================================== */
 
-    public function sendEmail(Request $request, $id)
-    {
-        $validator = Validator::make($request->all(), [
-            'subject' => 'required',
-            'message' => 'required'
-        ]);
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
+public function sendEmail(Request $request, $id)
+{
+    $validator = Validator::make($request->all(), [
+        'subject' => 'required',
+        'message' => 'required'
+    ]);
 
-        $candidate = Candidate::findOrFail($id);
-
-        Mail::raw($request->message, function ($mail) use ($candidate, $request) {
-            $mail->to($candidate->email)
-                ->subject($request->subject);
-        });
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Email sent successfully'
-        ]);
+    if ($validator->fails()) {
+        return response()->json(['errors' => $validator->errors()], 422);
     }
+
+    $candidate = Candidate::findOrFail($id);
+
+    Mail::to($candidate->email)
+        ->send(new CandidateTemplateMail(
+            $candidate,
+            $request->subject,
+            $request->message
+        ));
+
+    return response()->json([
+        'status' => true,
+        'message' => 'Email sent successfully using template'
+    ]);
+}
 
     /* =====================================
         Download Resume

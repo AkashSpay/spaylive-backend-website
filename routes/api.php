@@ -6,6 +6,7 @@ use App\Http\Controllers\JobListController;
 use App\Http\Controllers\CandidateController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\InterviewController;
+use App\Http\Controllers\UserManagementController;
 
 /*
 |--------------------------------------------------------------------------
@@ -55,5 +56,17 @@ Route::get('/search', [SearchController::class, 'search']);
 Route::get('/interviews', [InterviewController::class, 'index']);
 Route::post('/interviews', [InterviewController::class, 'store']);
 
+
+
+
+Route::middleware('auth:sanctum')->group(function () {
+
+    Route::get('/users', [UserManagementController::class, 'index']);
+    Route::post('/users', [UserManagementController::class, 'store']);
+    Route::put('/users/{id}', [UserManagementController::class, 'update']);
+    Route::patch('/users/{id}/toggle-status', [UserManagementController::class, 'toggleStatus']);
+    Route::delete('/users/{id}', [UserManagementController::class, 'destroy']);
+
+});
 // ✅ LOAD BREEZE AUTH ROUTES
 require __DIR__ . '/auth.php';
