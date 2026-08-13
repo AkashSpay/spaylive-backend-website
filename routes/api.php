@@ -4,6 +4,7 @@ use App\Http\Controllers\BlogController;
 use App\Http\Controllers\CandidateController;
 use App\Http\Controllers\InterviewController;
 use App\Http\Controllers\JobListController;
+use App\Http\Controllers\NTTPayinController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\UserManagementController;
 use Illuminate\Http\Request;
@@ -71,5 +72,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/users/{id}', [UserManagementController::class, 'destroy']);
 
 });
+
+Route::post('/ntt/payin', [NTTPayinController::class, 'initiatePayment']);
+Route::post('/ntt/callback', [NTTPayinController::class, 'callback']);
+
 // ✅ LOAD BREEZE AUTH ROUTES
 require __DIR__.'/auth.php';

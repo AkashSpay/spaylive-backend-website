@@ -26,6 +26,7 @@ class BlogController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'title' => 'nullable|string|max:255',
+            'slug' => 'required|string|max:255|unique:blogs,slug',
             'subtitle' => 'nullable|string|max:255',
             'description' => 'nullable|string',
             'image' => 'required|image|mimes:jpg,jpeg,png|max:2048',
@@ -47,6 +48,7 @@ class BlogController extends Controller
 
         $blog = Blog::create([
             'title' => $request->title,
+            'slug' => $request->slug,
             'subtitle' => $request->subtitle,
             'description' => $request->description,
             'category' => $request->category,
@@ -61,10 +63,9 @@ class BlogController extends Controller
     }
 
     // ✅ SHOW SINGLE BLOG
-    public function show($id)
+    public function show($slug)
     {
-        // dd("helo");
-        $blog = Blog::find($id);
+        $blog = Blog::where('slug', $slug)->first();
 
         if (! $blog) {
             return response()->json([
@@ -93,6 +94,7 @@ class BlogController extends Controller
 
         $validator = Validator::make($request->all(), [
             'title' => 'nullable|string|max:255',
+            'slug' => 'required|string|max:255|unique:blogs,slug,'.$id,
             'subtitle' => 'nullable|string|max:255',
             'description' => 'nullable|string',
             'image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
@@ -117,6 +119,7 @@ class BlogController extends Controller
         }
 
         $blog->title = $request->title;
+        $blog->slug = $request->slug;
         $blog->subtitle = $request->subtitle;
         $blog->description = $request->description;
         $blog->category = $request->category;
